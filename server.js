@@ -84,6 +84,10 @@ const auth = basicAuth({
   challenge: true
 });
 
+// 🔧 Route /admin : sert directement la page admin.html
+app.get("/admin", auth, (_req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
+});
 app.use("/admin", auth, express.static(path.join(__dirname, "public")));
 
 app.get("/api/rules", auth, (_req, res) => res.json(loadRules()));
