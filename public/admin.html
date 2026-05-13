@@ -1,197 +1,193 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <title>🎛️ Panneau Robot Instagram</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; background:#f7f7f8; }
-    h1 { color:#333; }
-    form, .rule { background:white; padding:20px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.05); margin-bottom:16px; }
-    label { display:block; margin:12px 0 4px; font-weight:600; }
-    input, textarea, select { width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; font-size:15px; box-sizing:border-box; font-family:inherit; }
-    select { background:white; cursor:pointer; }
-    button { background:#0095f6; color:white; border:0; padding:12px 20px; border-radius:8px; font-size:15px; cursor:pointer; margin-top:12px; }
-    button.del { background:#e74c3c; padding:6px 12px; font-size:13px; }
-    .rule h3 { margin:0 0 6px; }
-    .tag { display:inline-block; background:#eef; padding:3px 8px; border-radius:6px; margin-right:4px; font-size:13px; }
-    .type-badge { display:inline-block; background:#0095f6; color:white; padding:3px 8px; border-radius:6px; font-size:12px; margin-bottom:8px; }
-    .variant-tag { display:inline-block; background:#f0f0f0; color:#444; padding:3px 10px; border-radius:12px; margin:2px 4px 2px 0; font-size:12px; }
-    .hint { font-size:13px; color:#666; margin-top:4px; font-style:italic; }
-    .field { display:none; }
-    .field.show { display:block; }
-    .preview-img { max-width:200px; max-height:200px; border-radius:8px; margin-top:8px; display:none; }
-    .preview-img.show { display:block; }
-    .rule-img { max-width:120px; max-height:120px; border-radius:8px; margin:8px 0; }
-    .cta-preview { display:inline-block; background:#0095f6; color:white; padding:6px 14px; border-radius:18px; font-size:13px; margin-top:6px; text-decoration:none; }
-    .char-count { font-size:12px; color:#888; text-align:right; }
-    .char-count.warn { color:#e74c3c; font-weight:bold; }
-    .variant-count { font-size:12px; color:#0095f6; font-weight:600; margin-top:4px; }
-  </style>
+<meta charset="UTF-8">
+<title>🎛️ Panneau Robot Instagram</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 20px; background: #f5f6f8; color: #222; }
+h1 { font-size: 28px; }
+h2 { font-size: 22px; margin-top: 30px; }
+.card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; }
+label { display: block; margin-top: 12px; font-weight: 600; font-size: 14px; }
+input, textarea, select { width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; font-family: inherit; }
+textarea { resize: vertical; min-height: 80px; }
+button { background: #0095f6; color: #fff; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; margin-top: 16px; }
+button:hover { background: #0080d6; }
+button.danger { background: #e74c3c; padding: 6px 12px; font-size: 12px; margin-top: 0; }
+button.danger:hover { background: #c0392b; }
+.rule { background: #fafafa; border-left: 4px solid #0095f6; padding: 14px; margin-bottom: 10px; border-radius: 6px; }
+.rule strong { color: #0095f6; }
+.tag { display: inline-block; background: #e8f3ff; color: #0095f6; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-right: 4px; margin-top: 4px; }
+.tag.green { background: #e8f9ee; color: #1e8e3e; }
+.tag.orange { background: #fff4e5; color: #d77a00; }
+.field-group { display: none; }
+.field-group.active { display: block; }
+small { color: #777; font-size: 12px; }
+.counter { color: #999; font-size: 12px; margin-top: 4px; }
+hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+.empty { color: #888; font-style: italic; }
+</style>
 </head>
 <body>
-  <h1>🎛️ Mes règles automatiques</h1>
 
-  <form id="addForm">
-    <label>Mot(s)-clé(s) déclencheur(s) — séparés par des virgules</label>
-    <input id="keyword" placeholder="ex: prix, tarif, combien" required />
+<h1>🎛️ Mes règles automatiques</h1>
 
-    <label>Type de message DM</label>
-    <select id="type">
-      <option value="text">📝 Texte simple</option>
-      <option value="image">🖼️ Image seule</option>
-      <option value="button">🔘 Texte + Bouton CTA</option>
-      <option value="image_button">🎴 Image + Bouton CTA (recommandé)</option>
-    </select>
+<div class="card">
+  <h2>➕ Ajouter une règle</h2>
 
-    <div id="field-dm" class="field show">
-      <label id="label-dm">Message DM à envoyer</label>
-      <textarea id="dm" rows="3" placeholder="Coucou ! Voici notre offre…"></textarea>
-    </div>
+  <label>Mot(s)-clé(s) déclencheur(s) — séparés par des virgules</label>
+  <input id="keywords" type="text" placeholder="ex: prix, tarif, combien">
 
-    <div id="field-subtitle" class="field">
-      <label>Sous-titre court (optionnel, sous le titre)</label>
-      <input id="subtitle" maxlength="80" placeholder="ex: Livraison gratuite dès 50€" />
-      <div class="hint">80 caractères max</div>
-    </div>
+  <label>Type de message DM</label>
+  <select id="type">
+    <option value="text">📝 Texte simple</option>
+    <option value="image">🖼️ Image seule</option>
+    <option value="button">🔘 Texte + Bouton CTA</option>
+    <option value="image_button">🎴 Image + Titre + Bouton CTA</option>
+  </select>
 
-    <div id="field-image" class="field">
-      <label>URL de l'image (HTTPS uniquement, JPG ou PNG, pas WebP)</label>
-      <input id="imageUrl" type="url" placeholder="https://exemple.com/image.jpg" />
-      <div class="hint">L'image doit déjà être hébergée en ligne. Astuce : imgbb.com ou postimg.cc pour héberger gratuitement.</div>
-      <img id="imagePreview" class="preview-img" alt="aperçu" />
-    </div>
+  <div class="field-group active" data-types="text,button,image_button">
+    <label>Message / Titre</label>
+    <textarea id="dmText" placeholder="Coucou ! Voici le lien : https://..."></textarea>
+  </div>
 
-    <div id="field-cta" class="field">
-      <label>Texte du bouton (20 caractères max)</label>
-      <input id="ctaText" maxlength="20" placeholder="ex: Voir l'offre" />
-      <div class="char-count" id="ctaCount">0 / 20</div>
+  <div class="field-group" data-types="image,image_button">
+    <label>URL de l'image (HTTPS, JPG/PNG/GIF)</label>
+    <input id="imageUrl" type="url" placeholder="https://i.postimg.cc/...">
+    <small>⚠️ WebP non supporté. HTTPS obligatoire. Max 8 Mo.</small>
+  </div>
 
-      <label>URL du bouton (HTTPS uniquement)</label>
-      <input id="ctaUrl" type="url" placeholder="https://www.privatesportshop.com/..." />
-    </div>
+  <div class="field-group" data-types="button,image_button">
+    <label>Texte du bouton CTA (max 20 caractères)</label>
+    <input id="ctaText" type="text" maxlength="20" placeholder="ex: Voir l'offre">
+    <div class="counter" id="ctaCounter">0 / 20</div>
 
-    <label>Réponse publique sous le commentaire (optionnel)</label>
-    <textarea id="publicReply" rows="4" placeholder="Check tes DM 💌&#10;Regarde tes DM 📩&#10;J'envoie ça en MP ✉️&#10;Réponse en privé !"></textarea>
-    <div class="hint">💡 Mets <b>plusieurs variantes</b> séparées par des sauts de ligne (Entrée) ou des barres verticales <code>|</code>. Le bot piochera une réponse au hasard à chaque commentaire — comportement plus naturel.</div>
-    <div class="variant-count" id="variantCount"></div>
+    <label>URL du bouton CTA</label>
+    <input id="ctaUrl" type="url" placeholder="https://www.privatesportshop.com/...">
+  </div>
 
-    <button type="submit">➕ Ajouter la règle</button>
-  </form>
+  <hr>
 
-  <h2>📋 Règles actives</h2>
-  <div id="list"></div>
+  <label>Réponse publique (optionnel) — sépare les variantes par <code>|</code> ou retour à la ligne</label>
+  <textarea id="publicReply" placeholder="Check tes DM 💌 | Regarde tes messages | Je t'ai écrit en privé"></textarea>
+  <div class="counter" id="variantCounter">0 variante</div>
 
-  <script>
-    const typeSelect = document.getElementById("type");
-    const fields = {
-      dm: document.getElementById("field-dm"),
-      subtitle: document.getElementById("field-subtitle"),
-      image: document.getElementById("field-image"),
-      cta: document.getElementById("field-cta")
-    };
-    const imgInput = document.getElementById("imageUrl");
-    const imgPreview = document.getElementById("imagePreview");
-    const ctaTextInput = document.getElementById("ctaText");
-    const ctaCount = document.getElementById("ctaCount");
-    const publicReplyInput = document.getElementById("publicReply");
-    const variantCount = document.getElementById("variantCount");
+  <button onclick="addRule()">+ Ajouter la règle</button>
+</div>
 
-    function updateFields() {
-      const t = typeSelect.value;
-      Object.values(fields).forEach(f => f.classList.remove("show"));
-      if (t === "text") { fields.dm.classList.add("show"); document.getElementById("label-dm").textContent = "Message DM à envoyer"; }
-      if (t === "image") fields.image.classList.add("show");
-      if (t === "button") { fields.dm.classList.add("show"); fields.cta.classList.add("show"); document.getElementById("label-dm").textContent = "Message DM (au-dessus du bouton)"; }
-      if (t === "image_button") { fields.dm.classList.add("show"); fields.subtitle.classList.add("show"); fields.image.classList.add("show"); fields.cta.classList.add("show"); document.getElementById("label-dm").textContent = "Titre principal (80 caractères max)"; }
+<h2>📋 Règles actives</h2>
+<div id="rules"><p class="empty">Chargement...</p></div>
+
+<script>
+// Switch type fields
+const typeSelect = document.getElementById('type');
+function refreshFields() {
+  const type = typeSelect.value;
+  document.querySelectorAll('.field-group').forEach(g => {
+    const types = g.dataset.types.split(',');
+    g.classList.toggle('active', types.includes(type));
+  });
+}
+typeSelect.addEventListener('change', refreshFields);
+refreshFields();
+
+// CTA counter
+const ctaText = document.getElementById('ctaText');
+ctaText.addEventListener('input', () => {
+  document.getElementById('ctaCounter').textContent = ctaText.value.length + ' / 20';
+});
+
+// Variant counter
+const publicReply = document.getElementById('publicReply');
+publicReply.addEventListener('input', () => {
+  const variants = publicReply.value.split(/\||\n/).map(s => s.trim()).filter(Boolean);
+  document.getElementById('variantCounter').textContent = variants.length + ' variante' + (variants.length > 1 ? 's' : '');
+});
+
+// Load rules
+async function loadRules() {
+  try {
+    const res = await fetch('/api/rules');
+    const rules = await res.json();
+    const container = document.getElementById('rules');
+    if (!rules.length) {
+      container.innerHTML = '<p class="empty">Aucune règle pour l\'instant.</p>';
+      return;
     }
-    typeSelect.addEventListener("change", updateFields);
+    container.innerHTML = rules.map(r => {
+      const typeLabel = {
+        text: '📝 Texte',
+        image: '🖼️ Image',
+        button: '🔘 Texte + CTA',
+        image_button: '🎴 Image + CTA'
+      }[r.type || 'text'];
+      const variants = (r.publicReply || '').split(/\||\n/).map(s => s.trim()).filter(Boolean);
+      return `
+        <div class="rule">
+          <div><span class="tag orange">${typeLabel}</span><strong>${escapeHtml(r.keywords || '')}</strong></div>
+          ${r.dmText ? `<div style="margin-top:6px"><small>Message:</small> ${escapeHtml(r.dmText)}</div>` : ''}
+          ${r.imageUrl ? `<div style="margin-top:6px"><small>Image:</small> <a href="${escapeHtml(r.imageUrl)}" target="_blank">${escapeHtml(r.imageUrl)}</a></div>` : ''}
+          ${r.ctaText ? `<div style="margin-top:6px"><small>Bouton:</small> "${escapeHtml(r.ctaText)}" → <a href="${escapeHtml(r.ctaUrl)}" target="_blank">${escapeHtml(r.ctaUrl)}</a></div>` : ''}
+          ${variants.length ? `<div style="margin-top:6px"><small>Réponses publiques (${variants.length}):</small> ${variants.map(v => `<span class="tag green">${escapeHtml(v)}</span>`).join(' ')}</div>` : ''}
+          <button class="danger" onclick="deleteRule('${r.id}')">🗑️ Supprimer</button>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    document.getElementById('rules').innerHTML = '<p class="empty">Erreur de chargement : ' + e.message + '</p>';
+  }
+}
 
-    imgInput.addEventListener("input", () => {
-      const url = imgInput.value.trim();
-      if (url && url.startsWith("https://")) {
-        imgPreview.src = url;
-        imgPreview.classList.add("show");
-        imgPreview.onerror = () => imgPreview.classList.remove("show");
-      } else { imgPreview.classList.remove("show"); }
-    });
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
-    ctaTextInput.addEventListener("input", () => {
-      const len = ctaTextInput.value.length;
-      ctaCount.textContent = `${len} / 20`;
-      ctaCount.classList.toggle("warn", len > 15);
-    });
+async function addRule() {
+  const type = typeSelect.value;
+  const rule = {
+    type,
+    keywords: document.getElementById('keywords').value.trim(),
+    dmText: document.getElementById('dmText').value.trim(),
+    imageUrl: document.getElementById('imageUrl').value.trim(),
+    ctaText: document.getElementById('ctaText').value.trim(),
+    ctaUrl: document.getElementById('ctaUrl').value.trim(),
+    publicReply: document.getElementById('publicReply').value.trim()
+  };
 
-    // COMPTEUR DE VARIANTES EN TEMPS REEL
-    publicReplyInput.addEventListener("input", () => {
-      const variants = publicReplyInput.value.split(/[|\n]/).map(s => s.trim()).filter(Boolean);
-      if (variants.length === 0) variantCount.textContent = "";
-      else if (variants.length === 1) variantCount.textContent = "1 réponse (toujours la même)";
-      else variantCount.textContent = `🎲 ${variants.length} variantes — le bot choisira au hasard à chaque commentaire`;
-    });
+  if (!rule.keywords) { alert('Mot-clé obligatoire'); return; }
+  if ((type === 'text' || type === 'button' || type === 'image_button') && !rule.dmText) { alert('Message/Titre obligatoire'); return; }
+  if ((type === 'image' || type === 'image_button') && !rule.imageUrl) { alert('URL d\'image obligatoire'); return; }
+  if ((type === 'button' || type === 'image_button') && (!rule.ctaText || !rule.ctaUrl)) { alert('Texte + URL du bouton obligatoires'); return; }
 
-    async function load() {
-      const r = await fetch("/api/rules");
-      const rules = await r.json();
-      const typeLabels = { text: "📝 Texte", image: "🖼️ Image", button: "🔘 Texte + CTA", image_button: "🎴 Image + CTA" };
-      document.getElementById("list").innerHTML = rules.length === 0
-        ? "<p>Aucune règle pour l'instant.</p>"
-        : rules.map(x => {
-            const variants = x.publicReply ? x.publicReply.split(/[|\n]/).map(s => s.trim()).filter(Boolean) : [];
-            return `
-              <div class="rule">
-                <div class="type-badge">${typeLabels[x.type || "text"]}</div>
-                <h3>${x.keywords.map(k=>`<span class='tag'>${k}</span>`).join("")}</h3>
-                ${x.imageUrl ? `<img src="${x.imageUrl}" class="rule-img" />` : ""}
-                ${x.dm ? `<p><b>Texte :</b> ${escape(x.dm)}</p>` : ""}
-                ${x.subtitle ? `<p><b>Sous-titre :</b> ${escape(x.subtitle)}</p>` : ""}
-                ${x.ctaText && x.ctaUrl ? `<p><b>Bouton :</b> <a href="${x.ctaUrl}" target="_blank" class="cta-preview">${escape(x.ctaText)}</a></p>` : ""}
-                ${variants.length > 0 ? `<p><b>Réponses publiques (${variants.length}) :</b><br>${variants.map(v => `<span class="variant-tag">${escape(v)}</span>`).join("")}</p>` : ""}
-                <button class="del" onclick="del('${x.id}')">🗑️ Supprimer</button>
-              </div>`;
-          }).join("");
-    }
+  await fetch('/api/rules', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(rule)
+  });
 
-    function escape(s) {
-      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
+  // Reset
+  document.getElementById('keywords').value = '';
+  document.getElementById('dmText').value = '';
+  document.getElementById('imageUrl').value = '';
+  document.getElementById('ctaText').value = '';
+  document.getElementById('ctaUrl').value = '';
+  document.getElementById('publicReply').value = '';
+  document.getElementById('ctaCounter').textContent = '0 / 20';
+  document.getElementById('variantCounter').textContent = '0 variante';
 
-    async function del(id) {
-      if (!confirm("Supprimer cette règle ?")) return;
-      await fetch("/api/rules/" + id, { method: "DELETE" });
-      load();
-    }
+  loadRules();
+}
 
-    document.getElementById("addForm").addEventListener("submit", async e => {
-      e.preventDefault();
-      const payload = {
-        keyword: keyword.value,
-        type: typeSelect.value,
-        dm: dm.value,
-        subtitle: subtitle.value,
-        imageUrl: imgInput.value,
-        ctaText: ctaTextInput.value,
-        ctaUrl: ctaUrl.value,
-        publicReply: publicReplyInput.value
-      };
-      const r = await fetch("/api/rules", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      if (!r.ok) {
-        const err = await r.json();
-        alert("Erreur : " + err.error);
-        return;
-      }
-      e.target.reset();
-      imgPreview.classList.remove("show");
-      variantCount.textContent = "";
-      updateFields();
-      load();
-    });
+async function deleteRule(id) {
+  if (!confirm('Supprimer cette règle ?')) return;
+  await fetch('/api/rules/' + id, { method: 'DELETE' });
+  loadRules();
+}
 
-    updateFields();
-    load();
-  </script>
+loadRules();
+</script>
+
 </body>
 </html>
