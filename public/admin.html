@@ -1,244 +1,210 @@
-require("dotenv").config();
-const express = require("express");
-const axios = require("axios");
-const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
-const basicAuth = require("express-basic-auth");
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>🎛️ Panneau Robot Instagram</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; background:#f7f7f8; }
+    h1 { color:#333; }
+    form, .rule { background:white; padding:20px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.05); margin-bottom:16px; }
+    label { display:block; margin:12px 0 4px; font-weight:600; }
+    input, textarea, select { width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; font-size:15px; box-sizing:border-box; }
+    select { background:white; cursor:pointer; }
+    button { background:#0095f6; color:white; border:0; padding:12px 20px; border-radius:8px; font-size:15px; cursor:pointer; margin-top:12px; }
+    button.del { background:#e74c3c; padding:6px 12px; font-size:13px; }
+    button:disabled { opacity:0.5; cursor:not-allowed; }
+    .rule h3 { margin:0 0 6px; }
+    .tag { display:inline-block; background:#eef; padding:3px 8px; border-radius:6px; margin-right:4px; font-size:13px; }
+    .type-badge { display:inline-block; background:#0095f6; color:white; padding:3px 8px; border-radius:6px; font-size:12px; margin-bottom:8px; }
+    .hint { font-size:13px; color:#666; margin-top:4px; font-style:italic; }
+    .field { display:none; }
+    .field.show { display:block; }
+    .preview-img { max-width:200px; max-height:200px; border-radius:8px; margin-top:8px; display:none; }
+    .preview-img.show { display:block; }
+    .rule-img { max-width:120px; max-height:120px; border-radius:8px; margin:8px 0; }
+    .cta-preview { display:inline-block; background:#0095f6; color:white; padding:6px 14px; border-radius:18px; font-size:13px; margin-top:6px; text-decoration:none; }
+    .char-count { font-size:12px; color:#888; text-align:right; }
+    .char-count.warn { color:#e74c3c; font-weight:bold; }
+  </style>
+</head>
+<body>
+  <h1>🎛️ Mes règles automatiques</h1>
 
-const app = express();
+  <form id="addForm">
+    <label>Mot(s)-clé(s) déclencheur(s) — séparés par des virgules</label>
+    <input id="keyword" placeholder="ex: prix, tarif, combien" required />
 
-app.use(express.json({
-  verify: (req, _res, buf) => { req.rawBody = buf; }
-}));
-app.use(express.urlencoded({ extended: true }));
+    <label>Type de message DM</label>
+    <select id="type">
+      <option value="text">📝 Texte simple</option>
+      <option value="image">🖼️ Image seule</option>
+      <option value="button">🔘 Texte + Bouton CTA</option>
+      <option value="image_button">🎴 Image + Bouton CTA (recommandé)</option>
+    </select>
 
-// LOG TOUTES LES REQUETES
-app.use((req, _res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  if (req.method === "POST" && req.body && Object.keys(req.body).length) {
-    console.log("   Body:", JSON.stringify(req.body).substring(0, 500));
-  }
-  next();
-});
+    <!-- Champ DM texte (utilisé pour text, button, image_button) -->
+    <div id="field-dm" class="field show">
+      <label id="label-dm">Message DM à envoyer</label>
+      <textarea id="dm" rows="3" placeholder="Coucou ! Voici notre offre…"></textarea>
+    </div>
 
-const {
-  PORT = 3000,
-  VERIFY_TOKEN,
-  PAGE_ACCESS_TOKEN,
-  IG_USER_ID,
-  APP_SECRET,
-  ADMIN_USER,
-  ADMIN_PASS
-} = process.env;
+    <!-- Sous-titre (utilisé pour image_button uniquement) -->
+    <div id="field-subtitle" class="field">
+      <label>Sous-titre court (optionnel, sous le titre)</label>
+      <input id="subtitle" maxlength="80" placeholder="ex: Livraison gratuite dès 50€" />
+      <div class="hint">80 caractères max</div>
+    </div>
 
-const GRAPH = "https://graph.instagram.com/v21.0";
-const RULES_FILE = path.join(__dirname, "rules.json");
+    <!-- Image (utilisée pour image et image_button) -->
+    <div id="field-image" class="field">
+      <label>URL de l'image (HTTPS uniquement, JPG ou PNG)</label>
+      <input id="imageUrl" type="url" placeholder="https://exemple.com/image.jpg" />
+      <div class="hint">L'image doit déjà être hébergée en ligne. Astuce : tu peux héberger gratuitement sur imgbb.com</div>
+      <img id="imagePreview" class="preview-img" alt="aperçu" />
+    </div>
 
-function loadRules() {
-  try { return JSON.parse(fs.readFileSync(RULES_FILE, "utf8")); }
-  catch { return []; }
-}
-function saveRules(rules) {
-  fs.writeFileSync(RULES_FILE, JSON.stringify(rules, null, 2));
-}
+    <!-- Bouton CTA (utilisé pour button et image_button) -->
+    <div id="field-cta" class="field">
+      <label>Texte du bouton (20 caractères max)</label>
+      <input id="ctaText" maxlength="20" placeholder="ex: Voir l'offre" />
+      <div class="char-count" id="ctaCount">0 / 20</div>
 
-app.get("/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    time: new Date().toISOString(),
-    hasToken: !!PAGE_ACCESS_TOKEN,
-    tokenPrefix: PAGE_ACCESS_TOKEN ? PAGE_ACCESS_TOKEN.substring(0, 6) : null,
-    hasAppSecret: !!APP_SECRET,
-    rulesCount: loadRules().length
-  });
-});
+      <label>URL du bouton (HTTPS uniquement)</label>
+      <input id="ctaUrl" type="url" placeholder="https://www.privatesportshop.com/..." />
+    </div>
 
-app.get("/webhook", (req, res) => {
-  console.log("GET /webhook - challenge Meta");
-  if (req.query["hub.mode"] === "subscribe" && req.query["hub.verify_token"] === VERIFY_TOKEN) {
-    return res.status(200).send(req.query["hub.challenge"]);
-  }
-  res.sendStatus(403);
-});
+    <label>Réponse publique sous le commentaire (optionnel)</label>
+    <input id="publicReply" placeholder="ex: Je t'envoie ça en MP ✉️" />
 
-function verifySignature(req) {
-  const sig = req.headers["x-hub-signature-256"];
-  if (!sig || !APP_SECRET) return false;
-  const expected = "sha256=" + crypto.createHmac("sha256", APP_SECRET)
-    .update(req.rawBody).digest("hex");
-  try {
-    return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
-  } catch { return false; }
-}
+    <button type="submit">➕ Ajouter la règle</button>
+  </form>
 
-app.post("/webhook", async (req, res) => {
-  console.log("POST /webhook recu !");
-  verifySignature(req);
-  res.sendStatus(200);
+  <h2>📋 Règles actives</h2>
+  <div id="list"></div>
 
-  const entries = req.body.entry || [];
-  for (const entry of entries) {
-    const changes = entry.changes || [];
-    for (const change of changes) {
-      if (change.field === "comments") {
-        await handleComment(change.value);
+  <script>
+    const typeSelect = document.getElementById("type");
+    const fields = {
+      dm: document.getElementById("field-dm"),
+      subtitle: document.getElementById("field-subtitle"),
+      image: document.getElementById("field-image"),
+      cta: document.getElementById("field-cta")
+    };
+    const imgInput = document.getElementById("imageUrl");
+    const imgPreview = document.getElementById("imagePreview");
+    const ctaTextInput = document.getElementById("ctaText");
+    const ctaCount = document.getElementById("ctaCount");
+
+    function updateFields() {
+      const t = typeSelect.value;
+      // Reset
+      Object.values(fields).forEach(f => f.classList.remove("show"));
+
+      if (t === "text") {
+        fields.dm.classList.add("show");
+        document.getElementById("label-dm").textContent = "Message DM à envoyer";
+      }
+      if (t === "image") {
+        fields.image.classList.add("show");
+      }
+      if (t === "button") {
+        fields.dm.classList.add("show");
+        fields.cta.classList.add("show");
+        document.getElementById("label-dm").textContent = "Message DM (au-dessus du bouton)";
+      }
+      if (t === "image_button") {
+        fields.dm.classList.add("show");
+        fields.subtitle.classList.add("show");
+        fields.image.classList.add("show");
+        fields.cta.classList.add("show");
+        document.getElementById("label-dm").textContent = "Titre principal (80 caractères max)";
       }
     }
-  }
-});
+    typeSelect.addEventListener("change", updateFields);
 
-// ============================================
-// CONSTRUCTION DU MESSAGE SELON LE TYPE
-// ============================================
-function buildMessage(rule) {
-  const type = rule.type || "text";
-
-  // Type 1 : Texte simple
-  if (type === "text") {
-    return { text: rule.dm };
-  }
-
-  // Type 2 : Image seule
-  if (type === "image") {
-    return {
-      attachment: {
-        type: "image",
-        payload: { url: rule.imageUrl, is_reusable: true }
+    // Aperçu image
+    imgInput.addEventListener("input", () => {
+      const url = imgInput.value.trim();
+      if (url && url.startsWith("https://")) {
+        imgPreview.src = url;
+        imgPreview.classList.add("show");
+        imgPreview.onerror = () => imgPreview.classList.remove("show");
+      } else {
+        imgPreview.classList.remove("show");
       }
-    };
-  }
+    });
 
-  // Type 3 : Texte + bouton CTA
-  if (type === "button") {
-    return {
-      attachment: {
-        type: "template",
-        payload: {
-          template_type: "button",
-          text: rule.dm,
-          buttons: [{
-            type: "web_url",
-            url: rule.ctaUrl,
-            title: rule.ctaText
-          }]
-        }
-      }
-    };
-  }
+    // Compteur CTA
+    ctaTextInput.addEventListener("input", () => {
+      const len = ctaTextInput.value.length;
+      ctaCount.textContent = `${len} / 20`;
+      ctaCount.classList.toggle("warn", len > 15);
+    });
 
-  // Type 4 : Image + texte + bouton CTA (Generic Template)
-  if (type === "image_button") {
-    return {
-      attachment: {
-        type: "template",
-        payload: {
-          template_type: "generic",
-          elements: [{
-            title: rule.dm.substring(0, 80) || "Découvrir",
-            subtitle: rule.subtitle ? rule.subtitle.substring(0, 80) : undefined,
-            image_url: rule.imageUrl,
-            buttons: [{
-              type: "web_url",
-              url: rule.ctaUrl,
-              title: rule.ctaText
-            }]
-          }]
-        }
-      }
-    };
-  }
-
-  // Fallback
-  return { text: rule.dm };
-}
-
-async function handleComment(c) {
-  try {
-    console.log(`   Commentaire: "${c.text}" de @${c.from?.username}`);
-    if (!c.text || !c.from) return;
-    if (IG_USER_ID && c.from.id === IG_USER_ID) return;
-
-    const lower = c.text.toLowerCase();
-    const rules = loadRules();
-    const rule = rules.find(r =>
-      r.keywords.some(k => lower.includes(k.toLowerCase()))
-    );
-    if (!rule) return console.log(`   Aucun mot-cle matche`);
-
-    console.log(`   MATCH (${rule.keywords[0]}) type=${rule.type || "text"} - envoi DM...`);
-
-    const message = buildMessage(rule);
-
-    await axios.post(`${GRAPH}/me/messages`, {
-      recipient: { comment_id: c.id },
-      message: message
-    }, { params: { access_token: PAGE_ACCESS_TOKEN } });
-    console.log(`   DM envoye !`);
-
-    if (rule.publicReply) {
-      await axios.post(`${GRAPH}/${c.id}/replies`, {
-        message: rule.publicReply
-      }, { params: { access_token: PAGE_ACCESS_TOKEN } });
-      console.log(`   Reponse publique postee`);
+    async function load() {
+      const r = await fetch("/api/rules");
+      const rules = await r.json();
+      const typeLabels = {
+        text: "📝 Texte",
+        image: "🖼️ Image",
+        button: "🔘 Texte + CTA",
+        image_button: "🎴 Image + CTA"
+      };
+      document.getElementById("list").innerHTML = rules.length === 0
+        ? "<p>Aucune règle pour l'instant.</p>"
+        : rules.map(x => `
+          <div class="rule">
+            <div class="type-badge">${typeLabels[x.type || "text"]}</div>
+            <h3>${x.keywords.map(k=>`<span class='tag'>${k}</span>`).join("")}</h3>
+            ${x.imageUrl ? `<img src="${x.imageUrl}" class="rule-img" />` : ""}
+            ${x.dm ? `<p><b>Texte :</b> ${escape(x.dm)}</p>` : ""}
+            ${x.subtitle ? `<p><b>Sous-titre :</b> ${escape(x.subtitle)}</p>` : ""}
+            ${x.ctaText && x.ctaUrl ? `<p><b>Bouton :</b> <a href="${x.ctaUrl}" target="_blank" class="cta-preview">${escape(x.ctaText)}</a></p>` : ""}
+            ${x.publicReply ? `<p><b>Réponse publique :</b> ${escape(x.publicReply)}</p>` : ""}
+            <button class="del" onclick="del('${x.id}')">🗑️ Supprimer</button>
+          </div>`).join("");
     }
-  } catch (e) {
-    console.error("   Erreur envoi DM:", e.response?.data || e.message);
-  }
-}
 
-// ============================================
-// ROUTES ADMIN
-// ============================================
-const auth = basicAuth({ users: { [ADMIN_USER]: ADMIN_PASS }, challenge: true });
+    function escape(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
 
-app.get("/admin", auth, (_req, res) => {
-  res.sendFile(path.join(__dirname, "public", "admin.html"));
-});
-app.use("/admin", auth, express.static(path.join(__dirname, "public")));
+    async function del(id) {
+      if (!confirm("Supprimer cette règle ?")) return;
+      await fetch("/api/rules/" + id, { method: "DELETE" });
+      load();
+    }
 
-app.get("/api/rules", auth, (_req, res) => res.json(loadRules()));
+    document.getElementById("addForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const payload = {
+        keyword: keyword.value,
+        type: typeSelect.value,
+        dm: dm.value,
+        subtitle: subtitle.value,
+        imageUrl: imgInput.value,
+        ctaText: ctaTextInput.value,
+        ctaUrl: ctaUrl.value,
+        publicReply: publicReply.value
+      };
+      const r = await fetch("/api/rules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) {
+        const err = await r.json();
+        alert("Erreur : " + err.error);
+        return;
+      }
+      e.target.reset();
+      imgPreview.classList.remove("show");
+      updateFields();
+      load();
+    });
 
-app.post("/api/rules", auth, (req, res) => {
-  const { keyword, type, dm, subtitle, imageUrl, ctaText, ctaUrl, publicReply } = req.body;
-  if (!keyword) return res.status(400).json({ error: "Mot-cle requis" });
-
-  // Validation selon le type
-  if ((type === "text" || type === "button") && !dm) {
-    return res.status(400).json({ error: "Message texte requis" });
-  }
-  if ((type === "image" || type === "image_button") && !imageUrl) {
-    return res.status(400).json({ error: "URL image requise" });
-  }
-  if ((type === "button" || type === "image_button") && (!ctaText || !ctaUrl)) {
-    return res.status(400).json({ error: "Texte et URL du bouton requis" });
-  }
-  if (ctaText && ctaText.length > 20) {
-    return res.status(400).json({ error: "Texte du bouton: 20 caracteres max" });
-  }
-
-  const rules = loadRules();
-  rules.push({
-    id: Date.now().toString(),
-    keywords: keyword.split(",").map(s => s.trim()).filter(Boolean),
-    type: type || "text",
-    dm: dm || "",
-    subtitle: subtitle || null,
-    imageUrl: imageUrl || null,
-    ctaText: ctaText || null,
-    ctaUrl: ctaUrl || null,
-    publicReply: publicReply || null
-  });
-  saveRules(rules);
-  res.json({ ok: true });
-});
-
-app.delete("/api/rules/:id", auth, (req, res) => {
-  const rules = loadRules().filter(r => r.id !== req.params.id);
-  saveRules(rules);
-  res.json({ ok: true });
-});
-
-app.get("/", (_req, res) => res.send("Robot Instagram actif. Va sur /admin ou /health"));
-
-app.listen(PORT, () => console.log(`En ligne sur :${PORT}`));
+    updateFields();
+    load();
+  </script>
+</body>
+</html>
