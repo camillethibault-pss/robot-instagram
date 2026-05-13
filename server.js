@@ -13,7 +13,6 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// LOG TOUTES LES REQUETES
 app.use((req, _res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   if (req.method === "POST" && req.body && Object.keys(req.body).length) {
@@ -43,6 +42,17 @@ function saveRules(rules) {
   fs.writeFileSync(RULES_FILE, JSON.stringify(rules, null, 2));
 }
 
+// CHOISIT UNE REPONSE PUBLIQUE ALEATOIRE PARMI LES VARIANTES
+function pickRandomReply(rawReply) {
+  if (!rawReply) return null;
+  const variants = rawReply
+    .split(/[|\n]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+  if (variants.length === 0) return null;
+  return variants[Math.floor(Math.random() * variants.length)];
+}
+
 app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
@@ -55,7 +65,6 @@ app.get("/health", (_req, res) => {
 });
 
 app.get("/webhook", (req, res) => {
-  console.log("GET /webhook - challenge Meta");
   if (req.query["hub.mode"] === "subscribe" && req.query["hub.verify_token"] === VERIFY_TOKEN) {
     return res.status(200).send(req.query["hub.challenge"]);
   }
@@ -67,9 +76,8 @@ function verifySignature(req) {
   if (!sig || !APP_SECRET) return false;
   const expected = "sha256=" + crypto.createHmac("sha256", APP_SECRET)
     .update(req.rawBody).digest("hex");
-  try {
-    return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
-  } catch { return false; }
+  try { return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected)); }
+  catch { return false; }
 }
 
 app.post("/webhook", async (req, res) => {
@@ -88,68 +96,36 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// ============================================
-// CONSTRUCTION DU MESSAGE SELON LE TYPE
-// ============================================
 function buildMessage(rule) {
   const type = rule.type || "text";
-
-  // Type 1 : Texte simple
-  if (type === "text") {
-    return { text: rule.dm };
-  }
-
-  // Type 2 : Image seule
-  if (type === "image") {
-    return {
-      attachment: {
-        type: "image",
-        payload: { url: rule.imageUrl, is_reusable: true }
+  if (type === "text") return { text: rule.dm };
+  if (type === "image") return {
+    attachment: { type: "image", payload: { url: rule.imageUrl, is_reusable: true } }
+  };
+  if (type === "button") return {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "button",
+        text: rule.dm,
+        buttons: [{ type: "web_url", url: rule.ctaUrl, title: rule.ctaText }]
       }
-    };
-  }
-
-  // Type 3 : Texte + bouton CTA
-  if (type === "button") {
-    return {
-      attachment: {
-        type: "template",
-        payload: {
-          template_type: "button",
-          text: rule.dm,
-          buttons: [{
-            type: "web_url",
-            url: rule.ctaUrl,
-            title: rule.ctaText
-          }]
-        }
+    }
+  };
+  if (type === "image_button") return {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "generic",
+        elements: [{
+          title: rule.dm.substring(0, 80) || "Découvrir",
+          subtitle: rule.subtitle ? rule.subtitle.substring(0, 80) : undefined,
+          image_url: rule.imageUrl,
+          buttons: [{ type: "web_url", url: rule.ctaUrl, title: rule.ctaText }]
+        }]
       }
-    };
-  }
-
-  // Type 4 : Image + texte + bouton CTA (Generic Template)
-  if (type === "image_button") {
-    return {
-      attachment: {
-        type: "template",
-        payload: {
-          template_type: "generic",
-          elements: [{
-            title: rule.dm.substring(0, 80) || "Découvrir",
-            subtitle: rule.subtitle ? rule.subtitle.substring(0, 80) : undefined,
-            image_url: rule.imageUrl,
-            buttons: [{
-              type: "web_url",
-              url: rule.ctaUrl,
-              title: rule.ctaText
-            }]
-          }]
-        }
-      }
-    };
-  }
-
-  // Fallback
+    }
+  };
   return { text: rule.dm };
 }
 
@@ -167,7 +143,6 @@ async function handleComment(c) {
     if (!rule) return console.log(`   Aucun mot-cle matche`);
 
     console.log(`   MATCH (${rule.keywords[0]}) type=${rule.type || "text"} - envoi DM...`);
-
     const message = buildMessage(rule);
 
     await axios.post(`${GRAPH}/me/messages`, {
@@ -176,20 +151,19 @@ async function handleComment(c) {
     }, { params: { access_token: PAGE_ACCESS_TOKEN } });
     console.log(`   DM envoye !`);
 
-    if (rule.publicReply) {
+    // REPONSE PUBLIQUE ALEATOIRE
+    const reply = pickRandomReply(rule.publicReply);
+    if (reply) {
       await axios.post(`${GRAPH}/${c.id}/replies`, {
-        message: rule.publicReply
+        message: reply
       }, { params: { access_token: PAGE_ACCESS_TOKEN } });
-      console.log(`   Reponse publique postee`);
+      console.log(`   Reponse publique postee : "${reply}"`);
     }
   } catch (e) {
     console.error("   Erreur envoi DM:", e.response?.data || e.message);
   }
 }
 
-// ============================================
-// ROUTES ADMIN
-// ============================================
 const auth = basicAuth({ users: { [ADMIN_USER]: ADMIN_PASS }, challenge: true });
 
 app.get("/admin", auth, (_req, res) => {
@@ -203,19 +177,10 @@ app.post("/api/rules", auth, (req, res) => {
   const { keyword, type, dm, subtitle, imageUrl, ctaText, ctaUrl, publicReply } = req.body;
   if (!keyword) return res.status(400).json({ error: "Mot-cle requis" });
 
-  // Validation selon le type
-  if ((type === "text" || type === "button") && !dm) {
-    return res.status(400).json({ error: "Message texte requis" });
-  }
-  if ((type === "image" || type === "image_button") && !imageUrl) {
-    return res.status(400).json({ error: "URL image requise" });
-  }
-  if ((type === "button" || type === "image_button") && (!ctaText || !ctaUrl)) {
-    return res.status(400).json({ error: "Texte et URL du bouton requis" });
-  }
-  if (ctaText && ctaText.length > 20) {
-    return res.status(400).json({ error: "Texte du bouton: 20 caracteres max" });
-  }
+  if ((type === "text" || type === "button") && !dm) return res.status(400).json({ error: "Message texte requis" });
+  if ((type === "image" || type === "image_button") && !imageUrl) return res.status(400).json({ error: "URL image requise" });
+  if ((type === "button" || type === "image_button") && (!ctaText || !ctaUrl)) return res.status(400).json({ error: "Texte et URL du bouton requis" });
+  if (ctaText && ctaText.length > 20) return res.status(400).json({ error: "Texte du bouton: 20 caracteres max" });
 
   const rules = loadRules();
   rules.push({
