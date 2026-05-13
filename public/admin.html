@@ -8,14 +8,14 @@
     h1 { color:#333; }
     form, .rule { background:white; padding:20px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.05); margin-bottom:16px; }
     label { display:block; margin:12px 0 4px; font-weight:600; }
-    input, textarea, select { width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; font-size:15px; box-sizing:border-box; }
+    input, textarea, select { width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; font-size:15px; box-sizing:border-box; font-family:inherit; }
     select { background:white; cursor:pointer; }
     button { background:#0095f6; color:white; border:0; padding:12px 20px; border-radius:8px; font-size:15px; cursor:pointer; margin-top:12px; }
     button.del { background:#e74c3c; padding:6px 12px; font-size:13px; }
-    button:disabled { opacity:0.5; cursor:not-allowed; }
     .rule h3 { margin:0 0 6px; }
     .tag { display:inline-block; background:#eef; padding:3px 8px; border-radius:6px; margin-right:4px; font-size:13px; }
     .type-badge { display:inline-block; background:#0095f6; color:white; padding:3px 8px; border-radius:6px; font-size:12px; margin-bottom:8px; }
+    .variant-tag { display:inline-block; background:#f0f0f0; color:#444; padding:3px 10px; border-radius:12px; margin:2px 4px 2px 0; font-size:12px; }
     .hint { font-size:13px; color:#666; margin-top:4px; font-style:italic; }
     .field { display:none; }
     .field.show { display:block; }
@@ -25,6 +25,7 @@
     .cta-preview { display:inline-block; background:#0095f6; color:white; padding:6px 14px; border-radius:18px; font-size:13px; margin-top:6px; text-decoration:none; }
     .char-count { font-size:12px; color:#888; text-align:right; }
     .char-count.warn { color:#e74c3c; font-weight:bold; }
+    .variant-count { font-size:12px; color:#0095f6; font-weight:600; margin-top:4px; }
   </style>
 </head>
 <body>
@@ -54,9 +55,9 @@
     </div>
 
     <div id="field-image" class="field">
-      <label>URL de l'image (HTTPS uniquement, JPG ou PNG)</label>
+      <label>URL de l'image (HTTPS uniquement, JPG ou PNG, pas WebP)</label>
       <input id="imageUrl" type="url" placeholder="https://exemple.com/image.jpg" />
-      <div class="hint">L'image doit déjà être hébergée en ligne. Astuce : tu peux héberger gratuitement sur imgbb.com</div>
+      <div class="hint">L'image doit déjà être hébergée en ligne. Astuce : imgbb.com ou postimg.cc pour héberger gratuitement.</div>
       <img id="imagePreview" class="preview-img" alt="aperçu" />
     </div>
 
@@ -70,7 +71,9 @@
     </div>
 
     <label>Réponse publique sous le commentaire (optionnel)</label>
-    <input id="publicReply" placeholder="ex: Je t'envoie ça en MP ✉️" />
+    <textarea id="publicReply" rows="4" placeholder="Check tes DM 💌&#10;Regarde tes DM 📩&#10;J'envoie ça en MP ✉️&#10;Réponse en privé !"></textarea>
+    <div class="hint">💡 Mets <b>plusieurs variantes</b> séparées par des sauts de ligne (Entrée) ou des barres verticales <code>|</code>. Le bot piochera une réponse au hasard à chaque commentaire — comportement plus naturel.</div>
+    <div class="variant-count" id="variantCount"></div>
 
     <button type="submit">➕ Ajouter la règle</button>
   </form>
@@ -90,30 +93,16 @@
     const imgPreview = document.getElementById("imagePreview");
     const ctaTextInput = document.getElementById("ctaText");
     const ctaCount = document.getElementById("ctaCount");
+    const publicReplyInput = document.getElementById("publicReply");
+    const variantCount = document.getElementById("variantCount");
 
     function updateFields() {
       const t = typeSelect.value;
       Object.values(fields).forEach(f => f.classList.remove("show"));
-
-      if (t === "text") {
-        fields.dm.classList.add("show");
-        document.getElementById("label-dm").textContent = "Message DM à envoyer";
-      }
-      if (t === "image") {
-        fields.image.classList.add("show");
-      }
-      if (t === "button") {
-        fields.dm.classList.add("show");
-        fields.cta.classList.add("show");
-        document.getElementById("label-dm").textContent = "Message DM (au-dessus du bouton)";
-      }
-      if (t === "image_button") {
-        fields.dm.classList.add("show");
-        fields.subtitle.classList.add("show");
-        fields.image.classList.add("show");
-        fields.cta.classList.add("show");
-        document.getElementById("label-dm").textContent = "Titre principal (80 caractères max)";
-      }
+      if (t === "text") { fields.dm.classList.add("show"); document.getElementById("label-dm").textContent = "Message DM à envoyer"; }
+      if (t === "image") fields.image.classList.add("show");
+      if (t === "button") { fields.dm.classList.add("show"); fields.cta.classList.add("show"); document.getElementById("label-dm").textContent = "Message DM (au-dessus du bouton)"; }
+      if (t === "image_button") { fields.dm.classList.add("show"); fields.subtitle.classList.add("show"); fields.image.classList.add("show"); fields.cta.classList.add("show"); document.getElementById("label-dm").textContent = "Titre principal (80 caractères max)"; }
     }
     typeSelect.addEventListener("change", updateFields);
 
@@ -123,9 +112,7 @@
         imgPreview.src = url;
         imgPreview.classList.add("show");
         imgPreview.onerror = () => imgPreview.classList.remove("show");
-      } else {
-        imgPreview.classList.remove("show");
-      }
+      } else { imgPreview.classList.remove("show"); }
     });
 
     ctaTextInput.addEventListener("input", () => {
@@ -134,28 +121,34 @@
       ctaCount.classList.toggle("warn", len > 15);
     });
 
+    // COMPTEUR DE VARIANTES EN TEMPS REEL
+    publicReplyInput.addEventListener("input", () => {
+      const variants = publicReplyInput.value.split(/[|\n]/).map(s => s.trim()).filter(Boolean);
+      if (variants.length === 0) variantCount.textContent = "";
+      else if (variants.length === 1) variantCount.textContent = "1 réponse (toujours la même)";
+      else variantCount.textContent = `🎲 ${variants.length} variantes — le bot choisira au hasard à chaque commentaire`;
+    });
+
     async function load() {
       const r = await fetch("/api/rules");
       const rules = await r.json();
-      const typeLabels = {
-        text: "📝 Texte",
-        image: "🖼️ Image",
-        button: "🔘 Texte + CTA",
-        image_button: "🎴 Image + CTA"
-      };
+      const typeLabels = { text: "📝 Texte", image: "🖼️ Image", button: "🔘 Texte + CTA", image_button: "🎴 Image + CTA" };
       document.getElementById("list").innerHTML = rules.length === 0
         ? "<p>Aucune règle pour l'instant.</p>"
-        : rules.map(x => `
-          <div class="rule">
-            <div class="type-badge">${typeLabels[x.type || "text"]}</div>
-            <h3>${x.keywords.map(k=>`<span class='tag'>${k}</span>`).join("")}</h3>
-            ${x.imageUrl ? `<img src="${x.imageUrl}" class="rule-img" />` : ""}
-            ${x.dm ? `<p><b>Texte :</b> ${escape(x.dm)}</p>` : ""}
-            ${x.subtitle ? `<p><b>Sous-titre :</b> ${escape(x.subtitle)}</p>` : ""}
-            ${x.ctaText && x.ctaUrl ? `<p><b>Bouton :</b> <a href="${x.ctaUrl}" target="_blank" class="cta-preview">${escape(x.ctaText)}</a></p>` : ""}
-            ${x.publicReply ? `<p><b>Réponse publique :</b> ${escape(x.publicReply)}</p>` : ""}
-            <button class="del" onclick="del('${x.id}')">🗑️ Supprimer</button>
-          </div>`).join("");
+        : rules.map(x => {
+            const variants = x.publicReply ? x.publicReply.split(/[|\n]/).map(s => s.trim()).filter(Boolean) : [];
+            return `
+              <div class="rule">
+                <div class="type-badge">${typeLabels[x.type || "text"]}</div>
+                <h3>${x.keywords.map(k=>`<span class='tag'>${k}</span>`).join("")}</h3>
+                ${x.imageUrl ? `<img src="${x.imageUrl}" class="rule-img" />` : ""}
+                ${x.dm ? `<p><b>Texte :</b> ${escape(x.dm)}</p>` : ""}
+                ${x.subtitle ? `<p><b>Sous-titre :</b> ${escape(x.subtitle)}</p>` : ""}
+                ${x.ctaText && x.ctaUrl ? `<p><b>Bouton :</b> <a href="${x.ctaUrl}" target="_blank" class="cta-preview">${escape(x.ctaText)}</a></p>` : ""}
+                ${variants.length > 0 ? `<p><b>Réponses publiques (${variants.length}) :</b><br>${variants.map(v => `<span class="variant-tag">${escape(v)}</span>`).join("")}</p>` : ""}
+                <button class="del" onclick="del('${x.id}')">🗑️ Supprimer</button>
+              </div>`;
+          }).join("");
     }
 
     function escape(s) {
@@ -178,7 +171,7 @@
         imageUrl: imgInput.value,
         ctaText: ctaTextInput.value,
         ctaUrl: ctaUrl.value,
-        publicReply: publicReply.value
+        publicReply: publicReplyInput.value
       };
       const r = await fetch("/api/rules", {
         method: "POST",
@@ -192,6 +185,7 @@
       }
       e.target.reset();
       imgPreview.classList.remove("show");
+      variantCount.textContent = "";
       updateFields();
       load();
     });
