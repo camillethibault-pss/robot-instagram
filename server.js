@@ -13,7 +13,7 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// LOG TOUTES LES REQUETES (avant tout traitement)
+// LOG TOUTES LES REQUETES
 app.use((req, _res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   if (req.method === "POST" && req.body && Object.keys(req.body).length) {
@@ -56,43 +56,31 @@ app.get("/health", (_req, res) => {
 
 app.get("/webhook", (req, res) => {
   console.log("GET /webhook - challenge Meta");
-  console.log("   mode:", req.query["hub.mode"]);
-  console.log("   token recu:", req.query["hub.verify_token"]);
-  console.log("   token attendu:", VERIFY_TOKEN);
   if (req.query["hub.mode"] === "subscribe" && req.query["hub.verify_token"] === VERIFY_TOKEN) {
-    console.log("   Challenge OK, on renvoie:", req.query["hub.challenge"]);
     return res.status(200).send(req.query["hub.challenge"]);
   }
-  console.log("   Challenge KO");
   res.sendStatus(403);
 });
 
 function verifySignature(req) {
   const sig = req.headers["x-hub-signature-256"];
-  if (!sig) { console.log("Pas de header x-hub-signature-256"); return false; }
-  if (!APP_SECRET) { console.log("APP_SECRET non defini"); return false; }
+  if (!sig || !APP_SECRET) return false;
   const expected = "sha256=" + crypto.createHmac("sha256", APP_SECRET)
     .update(req.rawBody).digest("hex");
   try {
-    const ok = crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
-    if (!ok) console.log("Signature invalide (recu:", sig, "attendu:", expected, ")");
-    return ok;
+    return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
   } catch { return false; }
 }
 
 app.post("/webhook", async (req, res) => {
   console.log("POST /webhook recu !");
-  const sigOK = verifySignature(req);
-  console.log("   Signature OK ?", sigOK);
+  verifySignature(req);
   res.sendStatus(200);
 
   const entries = req.body.entry || [];
-  console.log(`   ${entries.length} entry(ies) a traiter`);
-
   for (const entry of entries) {
     const changes = entry.changes || [];
     for (const change of changes) {
-      console.log(`   Field: ${change.field}`);
       if (change.field === "comments") {
         await handleComment(change.value);
       }
@@ -100,27 +88,91 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+// ============================================
+// CONSTRUCTION DU MESSAGE SELON LE TYPE
+// ============================================
+function buildMessage(rule) {
+  const type = rule.type || "text";
+
+  // Type 1 : Texte simple
+  if (type === "text") {
+    return { text: rule.dm };
+  }
+
+  // Type 2 : Image seule
+  if (type === "image") {
+    return {
+      attachment: {
+        type: "image",
+        payload: { url: rule.imageUrl, is_reusable: true }
+      }
+    };
+  }
+
+  // Type 3 : Texte + bouton CTA
+  if (type === "button") {
+    return {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "button",
+          text: rule.dm,
+          buttons: [{
+            type: "web_url",
+            url: rule.ctaUrl,
+            title: rule.ctaText
+          }]
+        }
+      }
+    };
+  }
+
+  // Type 4 : Image + texte + bouton CTA (Generic Template)
+  if (type === "image_button") {
+    return {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "generic",
+          elements: [{
+            title: rule.dm.substring(0, 80) || "Découvrir",
+            subtitle: rule.subtitle ? rule.subtitle.substring(0, 80) : undefined,
+            image_url: rule.imageUrl,
+            buttons: [{
+              type: "web_url",
+              url: rule.ctaUrl,
+              title: rule.ctaText
+            }]
+          }]
+        }
+      }
+    };
+  }
+
+  // Fallback
+  return { text: rule.dm };
+}
+
 async function handleComment(c) {
   try {
-    console.log(`   Commentaire recu: "${c.text}" de @${c.from?.username}`);
-    if (!c.text || !c.from) { console.log("   Pas de texte ou from manquant"); return; }
-    if (IG_USER_ID && c.from.id === IG_USER_ID) { console.log("   Commentaire de moi-meme"); return; }
+    console.log(`   Commentaire: "${c.text}" de @${c.from?.username}`);
+    if (!c.text || !c.from) return;
+    if (IG_USER_ID && c.from.id === IG_USER_ID) return;
 
     const lower = c.text.toLowerCase();
     const rules = loadRules();
-    console.log(`   ${rules.length} regle(s) chargee(s)`);
-
     const rule = rules.find(r =>
       r.keywords.some(k => lower.includes(k.toLowerCase()))
     );
-    if (!rule) return console.log(`   Aucun mot-cle matche dans "${c.text}"`);
+    if (!rule) return console.log(`   Aucun mot-cle matche`);
 
-    console.log(`   MATCH (${rule.keywords[0]}) - envoi DM...`);
+    console.log(`   MATCH (${rule.keywords[0]}) type=${rule.type || "text"} - envoi DM...`);
 
-    const dmUrl = `${GRAPH}/me/messages`;
-    await axios.post(dmUrl, {
+    const message = buildMessage(rule);
+
+    await axios.post(`${GRAPH}/me/messages`, {
       recipient: { comment_id: c.id },
-      message: { text: rule.dm }
+      message: message
     }, { params: { access_token: PAGE_ACCESS_TOKEN } });
     console.log(`   DM envoye !`);
 
@@ -135,6 +187,9 @@ async function handleComment(c) {
   }
 }
 
+// ============================================
+// ROUTES ADMIN
+// ============================================
 const auth = basicAuth({ users: { [ADMIN_USER]: ADMIN_PASS }, challenge: true });
 
 app.get("/admin", auth, (_req, res) => {
@@ -143,19 +198,41 @@ app.get("/admin", auth, (_req, res) => {
 app.use("/admin", auth, express.static(path.join(__dirname, "public")));
 
 app.get("/api/rules", auth, (_req, res) => res.json(loadRules()));
+
 app.post("/api/rules", auth, (req, res) => {
-  const { keyword, dm, publicReply } = req.body;
-  if (!keyword || !dm) return res.status(400).json({ error: "Champs requis" });
+  const { keyword, type, dm, subtitle, imageUrl, ctaText, ctaUrl, publicReply } = req.body;
+  if (!keyword) return res.status(400).json({ error: "Mot-cle requis" });
+
+  // Validation selon le type
+  if ((type === "text" || type === "button") && !dm) {
+    return res.status(400).json({ error: "Message texte requis" });
+  }
+  if ((type === "image" || type === "image_button") && !imageUrl) {
+    return res.status(400).json({ error: "URL image requise" });
+  }
+  if ((type === "button" || type === "image_button") && (!ctaText || !ctaUrl)) {
+    return res.status(400).json({ error: "Texte et URL du bouton requis" });
+  }
+  if (ctaText && ctaText.length > 20) {
+    return res.status(400).json({ error: "Texte du bouton: 20 caracteres max" });
+  }
+
   const rules = loadRules();
   rules.push({
     id: Date.now().toString(),
     keywords: keyword.split(",").map(s => s.trim()).filter(Boolean),
-    dm,
+    type: type || "text",
+    dm: dm || "",
+    subtitle: subtitle || null,
+    imageUrl: imageUrl || null,
+    ctaText: ctaText || null,
+    ctaUrl: ctaUrl || null,
     publicReply: publicReply || null
   });
   saveRules(rules);
   res.json({ ok: true });
 });
+
 app.delete("/api/rules/:id", auth, (req, res) => {
   const rules = loadRules().filter(r => r.id !== req.params.id);
   saveRules(rules);
