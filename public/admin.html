@@ -42,20 +42,17 @@
       <option value="image_button">🎴 Image + Bouton CTA (recommandé)</option>
     </select>
 
-    <!-- Champ DM texte (utilisé pour text, button, image_button) -->
     <div id="field-dm" class="field show">
       <label id="label-dm">Message DM à envoyer</label>
       <textarea id="dm" rows="3" placeholder="Coucou ! Voici notre offre…"></textarea>
     </div>
 
-    <!-- Sous-titre (utilisé pour image_button uniquement) -->
     <div id="field-subtitle" class="field">
       <label>Sous-titre court (optionnel, sous le titre)</label>
       <input id="subtitle" maxlength="80" placeholder="ex: Livraison gratuite dès 50€" />
       <div class="hint">80 caractères max</div>
     </div>
 
-    <!-- Image (utilisée pour image et image_button) -->
     <div id="field-image" class="field">
       <label>URL de l'image (HTTPS uniquement, JPG ou PNG)</label>
       <input id="imageUrl" type="url" placeholder="https://exemple.com/image.jpg" />
@@ -63,7 +60,6 @@
       <img id="imagePreview" class="preview-img" alt="aperçu" />
     </div>
 
-    <!-- Bouton CTA (utilisé pour button et image_button) -->
     <div id="field-cta" class="field">
       <label>Texte du bouton (20 caractères max)</label>
       <input id="ctaText" maxlength="20" placeholder="ex: Voir l'offre" />
@@ -97,7 +93,6 @@
 
     function updateFields() {
       const t = typeSelect.value;
-      // Reset
       Object.values(fields).forEach(f => f.classList.remove("show"));
 
       if (t === "text") {
@@ -122,7 +117,6 @@
     }
     typeSelect.addEventListener("change", updateFields);
 
-    // Aperçu image
     imgInput.addEventListener("input", () => {
       const url = imgInput.value.trim();
       if (url && url.startsWith("https://")) {
@@ -134,7 +128,6 @@
       }
     });
 
-    // Compteur CTA
     ctaTextInput.addEventListener("input", () => {
       const len = ctaTextInput.value.length;
       ctaCount.textContent = `${len} / 20`;
