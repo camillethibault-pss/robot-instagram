@@ -28,59 +28,99 @@ small { color: #777; font-size: 12px; }
 .counter { color: #999; font-size: 12px; margin-top: 4px; }
 hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
 .empty { color: #888; font-style: italic; }
+#login-screen { max-width: 400px; margin: 100px auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center; }
+#login-screen input { margin-bottom: 10px; }
+#login-error { color: #e74c3c; font-size: 13px; margin-top: 8px; display: none; }
+#main { display: none; }
 </style>
 </head>
 <body>
 
-<h1>🎛️ Mes règles automatiques</h1>
-
-<div class="card">
-  <h2>➕ Ajouter une règle</h2>
-
-  <label>Mot(s)-clé(s) déclencheur(s) — séparés par des virgules</label>
-  <input id="keywords" type="text" placeholder="ex: prix, tarif, combien">
-
-  <label>Type de message DM</label>
-  <select id="type">
-    <option value="text">📝 Texte simple</option>
-    <option value="image">🖼️ Image seule</option>
-    <option value="button">🔘 Texte + Bouton CTA</option>
-    <option value="image_button">🎴 Image + Titre + Bouton CTA</option>
-  </select>
-
-  <div class="field-group active" data-types="text,button,image_button">
-    <label>Message / Titre</label>
-    <textarea id="dmText" placeholder="Coucou ! Voici le lien : https://..."></textarea>
-  </div>
-
-  <div class="field-group" data-types="image,image_button">
-    <label>URL de l'image (HTTPS, JPG/PNG/GIF)</label>
-    <input id="imageUrl" type="url" placeholder="https://i.postimg.cc/...">
-    <small>⚠️ WebP non supporté. HTTPS obligatoire. Max 8 Mo.</small>
-  </div>
-
-  <div class="field-group" data-types="button,image_button">
-    <label>Texte du bouton CTA (max 20 caractères)</label>
-    <input id="ctaText" type="text" maxlength="20" placeholder="ex: Voir l'offre">
-    <div class="counter" id="ctaCounter">0 / 20</div>
-
-    <label>URL du bouton CTA</label>
-    <input id="ctaUrl" type="url" placeholder="https://www.privatesportshop.com/...">
-  </div>
-
-  <hr>
-
-  <label>Réponse publique (optionnel) — sépare les variantes par <code>|</code> ou retour à la ligne</label>
-  <textarea id="publicReply" placeholder="Check tes DM 💌 | Regarde tes messages | Je t'ai écrit en privé"></textarea>
-  <div class="counter" id="variantCounter">0 variante</div>
-
-  <button onclick="addRule()">+ Ajouter la règle</button>
+<!-- Écran de connexion -->
+<div id="login-screen">
+  <h2>🔐 Connexion Admin</h2>
+  <label>Mot de passe</label>
+  <input id="login-password" type="password" placeholder="Mot de passe" onkeydown="if(event.key==='Enter') login()">
+  <button onclick="login()" style="width:100%">Se connecter</button>
+  <div id="login-error">Mot de passe incorrect</div>
 </div>
 
-<h2>📋 Règles actives</h2>
-<div id="rules"><p class="empty">Chargement...</p></div>
+<!-- Panneau principal -->
+<div id="main">
+  <h1>🎛️ Mes règles automatiques</h1>
+
+  <div class="card">
+    <h2>➕ Ajouter une règle</h2>
+
+    <label>Mot(s)-clé(s) déclencheur(s) — séparés par des virgules</label>
+    <input id="keywords" type="text" placeholder="ex: prix, tarif, combien">
+
+    <label>Type de message DM</label>
+    <select id="type">
+      <option value="text">📝 Texte simple</option>
+      <option value="image">🖼️ Image seule</option>
+      <option value="button">🔘 Texte + Bouton CTA</option>
+      <option value="image_button">🎴 Image + Titre + Bouton CTA</option>
+    </select>
+
+    <div class="field-group active" data-types="text,button,image_button">
+      <label>Message / Titre</label>
+      <textarea id="dmText" placeholder="Coucou ! Voici le lien : https://..."></textarea>
+    </div>
+
+    <div class="field-group" data-types="image,image_button">
+      <label>URL de l'image (HTTPS, JPG/PNG/GIF)</label>
+      <input id="imageUrl" type="url" placeholder="https://i.postimg.cc/...">
+      <small>⚠️ WebP non supporté. HTTPS obligatoire. Max 8 Mo.</small>
+    </div>
+
+    <div class="field-group" data-types="button,image_button">
+      <label>Texte du bouton CTA (max 20 caractères)</label>
+      <input id="ctaText" type="text" maxlength="20" placeholder="ex: Voir l'offre">
+      <div class="counter" id="ctaCounter">0 / 20</div>
+
+      <label>URL du bouton CTA</label>
+      <input id="ctaUrl" type="url" placeholder="https://www.privatesportshop.com/...">
+    </div>
+
+    <hr>
+
+    <label>Réponse publique (optionnel) — sépare les variantes par <code>|</code> ou retour à la ligne</label>
+    <textarea id="publicReply" placeholder="Check tes DM 💌 | Regarde tes messages | Je t'ai écrit en privé"></textarea>
+    <div class="counter" id="variantCounter">0 variante</div>
+
+    <button onclick="addRule()">+ Ajouter la règle</button>
+  </div>
+
+  <h2>📋 Règles actives</h2>
+  <div id="rules"><p class="empty">Chargement...</p></div>
+</div>
 
 <script>
+let authHeader = '';
+
+function login() {
+  const password = document.getElementById('login-password').value;
+  if (!password) return;
+  // On stocke le header Basic Auth (user = "admin", password = saisi)
+  authHeader = 'Basic ' + btoa('admin:' + password);
+  // On teste avec /api/rules
+  fetch('/api/rules', { headers: { Authorization: authHeader } })
+    .then(res => {
+      if (res.status === 401) {
+        document.getElementById('login-error').style.display = 'block';
+        authHeader = '';
+      } else {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('main').style.display = 'block';
+        res.json().then(renderRules);
+      }
+    })
+    .catch(() => {
+      document.getElementById('login-error').style.display = 'block';
+    });
+}
+
 // Switch type fields
 const typeSelect = document.getElementById('type');
 function refreshFields() {
@@ -106,42 +146,45 @@ publicReply.addEventListener('input', () => {
   document.getElementById('variantCounter').textContent = variants.length + ' variante' + (variants.length > 1 ? 's' : '');
 });
 
-// Load rules
-async function loadRules() {
-  try {
-    const res = await fetch('/api/rules');
-    const rules = await res.json();
-    const container = document.getElementById('rules');
-    if (!rules.length) {
-      container.innerHTML = '<p class="empty">Aucune règle pour l\'instant.</p>';
-      return;
-    }
-    container.innerHTML = rules.map(r => {
-      const typeLabel = {
-        text: '📝 Texte',
-        image: '🖼️ Image',
-        button: '🔘 Texte + CTA',
-        image_button: '🎴 Image + CTA'
-      }[r.type || 'text'];
-      const variants = (r.publicReply || '').split(/\||\n/).map(s => s.trim()).filter(Boolean);
-      return `
-        <div class="rule">
-          <div><span class="tag orange">${typeLabel}</span><strong>${escapeHtml(r.keywords || '')}</strong></div>
-          ${r.dmText ? `<div style="margin-top:6px"><small>Message:</small> ${escapeHtml(r.dmText)}</div>` : ''}
-          ${r.imageUrl ? `<div style="margin-top:6px"><small>Image:</small> <a href="${escapeHtml(r.imageUrl)}" target="_blank">${escapeHtml(r.imageUrl)}</a></div>` : ''}
-          ${r.ctaText ? `<div style="margin-top:6px"><small>Bouton:</small> "${escapeHtml(r.ctaText)}" → <a href="${escapeHtml(r.ctaUrl)}" target="_blank">${escapeHtml(r.ctaUrl)}</a></div>` : ''}
-          ${variants.length ? `<div style="margin-top:6px"><small>Réponses publiques (${variants.length}):</small> ${variants.map(v => `<span class="tag green">${escapeHtml(v)}</span>`).join(' ')}</div>` : ''}
-          <button class="danger" onclick="deleteRule('${r.id}')">🗑️ Supprimer</button>
-        </div>
-      `;
-    }).join('');
-  } catch (e) {
-    document.getElementById('rules').innerHTML = '<p class="empty">Erreur de chargement : ' + e.message + '</p>';
-  }
-}
-
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderRules(rules) {
+  const container = document.getElementById('rules');
+  if (!rules.length) {
+    container.innerHTML = '<p class="empty">Aucune règle pour l\'instant.</p>';
+    return;
+  }
+  container.innerHTML = rules.map(r => {
+    const typeLabel = {
+      text: '📝 Texte',
+      image: '🖼️ Image',
+      button: '🔘 Texte + CTA',
+      image_button: '🎴 Image + CTA'
+    }[r.type || 'text'];
+    const variants = (r.publicReply || '').split(/\||\n/).map(s => s.trim()).filter(Boolean);
+    return `
+      <div class="rule">
+        <div><span class="tag orange">${typeLabel}</span><strong>${escapeHtml(r.keywords || '')}</strong></div>
+        ${r.dmText ? `<div style="margin-top:6px"><small>Message:</small> ${escapeHtml(r.dmText)}</div>` : ''}
+        ${r.imageUrl ? `<div style="margin-top:6px"><small>Image:</small> <a href="${escapeHtml(r.imageUrl)}" target="_blank">${escapeHtml(r.imageUrl)}</a></div>` : ''}
+        ${r.ctaText ? `<div style="margin-top:6px"><small>Bouton:</small> "${escapeHtml(r.ctaText)}" → <a href="${escapeHtml(r.ctaUrl)}" target="_blank">${escapeHtml(r.ctaUrl)}</a></div>` : ''}
+        ${variants.length ? `<div style="margin-top:6px"><small>Réponses publiques (${variants.length}):</small> ${variants.map(v => `<span class="tag green">${escapeHtml(v)}</span>`).join(' ')}</div>` : ''}
+        <button class="danger" onclick="deleteRule('${r.id}')">🗑️ Supprimer</button>
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadRules() {
+  try {
+    const res = await fetch('/api/rules', { headers: { Authorization: authHeader } });
+    const rules = await res.json();
+    renderRules(rules);
+  } catch (e) {
+    document.getElementById('rules').innerHTML = '<p class="empty">Erreur : ' + e.message + '</p>';
+  }
 }
 
 async function addRule() {
@@ -163,11 +206,10 @@ async function addRule() {
 
   await fetch('/api/rules', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: { 'Content-Type': 'application/json', Authorization: authHeader },
     body: JSON.stringify(rule)
   });
 
-  // Reset
   document.getElementById('keywords').value = '';
   document.getElementById('dmText').value = '';
   document.getElementById('imageUrl').value = '';
@@ -182,11 +224,9 @@ async function addRule() {
 
 async function deleteRule(id) {
   if (!confirm('Supprimer cette règle ?')) return;
-  await fetch('/api/rules/' + id, { method: 'DELETE' });
+  await fetch('/api/rules/' + id, { method: 'DELETE', headers: { Authorization: authHeader } });
   loadRules();
 }
-
-loadRules();
 </script>
 
 </body>
