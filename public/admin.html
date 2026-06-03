@@ -65,28 +65,28 @@ hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
 
     <div class="field-group active" data-types="text,button,image_button">
       <label>Message / Titre</label>
-      <textarea id="dmText" placeholder="Coucou ! Voici le lien : https://..."></textarea>
+      <textarea id="dmtext" placeholder="Coucou ! Voici le lien : https://..."></textarea>
     </div>
 
     <div class="field-group" data-types="image,image_button">
       <label>URL de l'image (HTTPS, JPG/PNG/GIF)</label>
-      <input id="imageUrl" type="url" placeholder="https://i.postimg.cc/...">
+      <input id="imageurl" type="url" placeholder="https://i.postimg.cc/...">
       <small>⚠️ WebP non supporté. HTTPS obligatoire. Max 8 Mo.</small>
     </div>
 
     <div class="field-group" data-types="button,image_button">
       <label>Texte du bouton CTA (max 20 caractères)</label>
-      <input id="ctaText" type="text" maxlength="20" placeholder="ex: Voir l'offre">
+      <input id="ctatext" type="text" maxlength="20" placeholder="ex: Voir l'offre">
       <div class="counter" id="ctaCounter">0 / 20</div>
 
       <label>URL du bouton CTA</label>
-      <input id="ctaUrl" type="url" placeholder="https://www.privatesportshop.com/...">
+      <input id="ctaurl" type="url" placeholder="https://www.privatesportshop.com/...">
     </div>
 
     <hr>
 
     <label>Réponse publique (optionnel) — sépare les variantes par <code>|</code> ou retour à la ligne</label>
-    <textarea id="publicReply" placeholder="Check tes DM 💌 | Regarde tes messages | Je t'ai écrit en privé"></textarea>
+    <textarea id="publicreply" placeholder="Check tes DM 💌 | Regarde tes messages | Je t'ai écrit en privé"></textarea>
     <div class="counter" id="variantCounter">0 variante</div>
 
     <button onclick="addRule()">+ Ajouter la règle</button>
@@ -134,15 +134,15 @@ typeSelect.addEventListener('change', refreshFields);
 refreshFields();
 
 // CTA counter
-const ctaText = document.getElementById('ctaText');
-ctaText.addEventListener('input', () => {
-  document.getElementById('ctaCounter').textContent = ctaText.value.length + ' / 20';
+const ctatext = document.getElementById('ctatext');
+ctatext.addEventListener('input', () => {
+  document.getElementById('ctaCounter').textContent = ctatext.value.length + ' / 20';
 });
 
 // Variant counter
-const publicReply = document.getElementById('publicReply');
-publicReply.addEventListener('input', () => {
-  const variants = publicReply.value.split(/\||\n/).map(s => s.trim()).filter(Boolean);
+const publicreply = document.getElementById('publicreply');
+publicreply.addEventListener('input', () => {
+  const variants = publicreply.value.split(/\||\n/).map(s => s.trim()).filter(Boolean);
   document.getElementById('variantCounter').textContent = variants.length + ' variante' + (variants.length > 1 ? 's' : '');
 });
 
@@ -163,13 +163,13 @@ function renderRules(rules) {
       button: '🔘 Texte + CTA',
       image_button: '🎴 Image + CTA'
     }[r.type || 'text'];
-    const variants = (r.publicReply || '').split(/\||\n/).map(s => s.trim()).filter(Boolean);
+    const variants = (r.publicreply || '').split(/\||\n/).map(s => s.trim()).filter(Boolean);
     return `
       <div class="rule">
         <div><span class="tag orange">${typeLabel}</span><strong>${escapeHtml(r.keywords || '')}</strong></div>
-        ${r.dmText ? `<div style="margin-top:6px"><small>Message:</small> ${escapeHtml(r.dmText)}</div>` : ''}
-        ${r.imageUrl ? `<div style="margin-top:6px"><small>Image:</small> <a href="${escapeHtml(r.imageUrl)}" target="_blank">${escapeHtml(r.imageUrl)}</a></div>` : ''}
-        ${r.ctaText ? `<div style="margin-top:6px"><small>Bouton:</small> "${escapeHtml(r.ctaText)}" → <a href="${escapeHtml(r.ctaUrl)}" target="_blank">${escapeHtml(r.ctaUrl)}</a></div>` : ''}
+        ${r.dmtext ? `<div style="margin-top:6px"><small>Message:</small> ${escapeHtml(r.dmtext)}</div>` : ''}
+        ${r.imageurl ? `<div style="margin-top:6px"><small>Image:</small> <a href="${escapeHtml(r.imageurl)}" target="_blank">${escapeHtml(r.imageurl)}</a></div>` : ''}
+        ${r.ctatext ? `<div style="margin-top:6px"><small>Bouton:</small> "${escapeHtml(r.ctatext)}" → <a href="${escapeHtml(r.ctaurl)}" target="_blank">${escapeHtml(r.ctaurl)}</a></div>` : ''}
         ${variants.length ? `<div style="margin-top:6px"><small>Réponses publiques (${variants.length}):</small> ${variants.map(v => `<span class="tag green">${escapeHtml(v)}</span>`).join(' ')}</div>` : ''}
         <button class="danger" onclick="deleteRule('${r.id}')">🗑️ Supprimer</button>
       </div>
@@ -192,17 +192,17 @@ async function addRule() {
   const rule = {
     type,
     keywords: document.getElementById('keywords').value.trim(),
-    dmText: document.getElementById('dmText').value.trim(),
-    imageUrl: document.getElementById('imageUrl').value.trim(),
-    ctaText: document.getElementById('ctaText').value.trim(),
-    ctaUrl: document.getElementById('ctaUrl').value.trim(),
-    publicReply: document.getElementById('publicReply').value.trim()
+    dmtext: document.getElementById('dmtext').value.trim(),
+    imageurl: document.getElementById('imageurl').value.trim(),
+    ctatext: document.getElementById('ctatext').value.trim(),
+    ctaurl: document.getElementById('ctaurl').value.trim(),
+    publicreply: document.getElementById('publicreply').value.trim()
   };
 
   if (!rule.keywords) { alert('Mot-clé obligatoire'); return; }
-  if ((type === 'text' || type === 'button' || type === 'image_button') && !rule.dmText) { alert('Message/Titre obligatoire'); return; }
-  if ((type === 'image' || type === 'image_button') && !rule.imageUrl) { alert('URL d\'image obligatoire'); return; }
-  if ((type === 'button' || type === 'image_button') && (!rule.ctaText || !rule.ctaUrl)) { alert('Texte + URL du bouton obligatoires'); return; }
+  if ((type === 'text' || type === 'button' || type === 'image_button') && !rule.dmtext) { alert('Message/Titre obligatoire'); return; }
+  if ((type === 'image' || type === 'image_button') && !rule.imageurl) { alert('URL d\'image obligatoire'); return; }
+  if ((type === 'button' || type === 'image_button') && (!rule.ctatext || !rule.ctaurl)) { alert('Texte + URL du bouton obligatoires'); return; }
 
   await fetch('/api/rules', {
     method: 'POST',
@@ -211,11 +211,11 @@ async function addRule() {
   });
 
   document.getElementById('keywords').value = '';
-  document.getElementById('dmText').value = '';
-  document.getElementById('imageUrl').value = '';
-  document.getElementById('ctaText').value = '';
-  document.getElementById('ctaUrl').value = '';
-  document.getElementById('publicReply').value = '';
+  document.getElementById('dmtext').value = '';
+  document.getElementById('imageurl').value = '';
+  document.getElementById('ctatext').value = '';
+  document.getElementById('ctaurl').value = '';
+  document.getElementById('publicreply').value = '';
   document.getElementById('ctaCounter').textContent = '0 / 20';
   document.getElementById('variantCounter').textContent = '0 variante';
 
