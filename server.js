@@ -79,7 +79,7 @@ function buildMessage(rule) {
     return {
       attachment: {
         type: 'image',
-        payload: { url: rule.imageUrl, is_reusable: true }
+        payload: { url: rule.imageurl, is_reusable: true }
       }
     };
   }
@@ -89,8 +89,8 @@ function buildMessage(rule) {
         type: 'template',
         payload: {
           template_type: 'button',
-          text: rule.dmText,
-          buttons: [{ type: 'web_url', url: rule.ctaUrl, title: rule.ctaText }]
+          text: rule.dmtext,
+          buttons: [{ type: 'web_url', url: rule.ctaurl, title: rule.ctatext }]
         }
       }
     };
@@ -102,15 +102,15 @@ function buildMessage(rule) {
         payload: {
           template_type: 'generic',
           elements: [{
-            title: rule.dmText,
-            image_url: rule.imageUrl,
-            buttons: [{ type: 'web_url', url: rule.ctaUrl, title: rule.ctaText }]
+            title: rule.dmtext,
+            image_url: rule.imageurl,
+            buttons: [{ type: 'web_url', url: rule.ctaurl, title: rule.ctatext }]
           }]
         }
       }
     };
   }
-  return { text: rule.dmText };
+  return { text: rule.dmtext };
 }
 
 // ---------- Middleware ----------
@@ -261,8 +261,8 @@ app.post('/webhook', async (req, res) => {
           }
 
           // Réponse publique
-          if (rule.publicReply) {
-            const reply = pickRandomReply(rule.publicReply);
+          if (rule.publicreply) {
+            const reply = pickRandomReply(rule.publicreply);
             if (reply) {
               try {
                 await axios.post(
